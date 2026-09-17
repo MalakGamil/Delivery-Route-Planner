@@ -21,4 +21,5 @@ def format_output(trips, invalid_deliveries):
         print()
         print("Rejected deliveries:")
         for raw, reason in invalid_deliveries:
-            print(f"  - {raw} -> {reason}")
+         print(f"  - #{raw.get('id', '?')} {raw.get('area', '?')}, "
+              f"weight {raw.get('weight', '?')}kg -> {reason}")
