@@ -1,7 +1,7 @@
 from models.trip import Trip
 
 def plan(deliveries, capacity):
-    sorted_deliveries = sorted(deliveries, key=lambda d: (d.priority, d.id))
+    sorted_deliveries = sorted(deliveries, key=lambda d: (d.priority, d.area, d.id))
     trips = []
     area_index = {}  
     next_trip_id = 1
@@ -22,7 +22,6 @@ def plan(deliveries, capacity):
             area_index[delivery.area].append(trip)
 
     return trips
-
 
 def find_best_fit(candidate_trips, delivery):
     best_trip = None

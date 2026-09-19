@@ -7,7 +7,7 @@ from core.formatter import format_output
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("filepath")
-    parser.add_argument("--capacity", type=float, default=10)
+    parser.add_argument("capacity", type=float, nargs="?", default=10)
     args = parser.parse_args()
 
     if args.capacity <= 0:

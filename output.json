@@ -1,0 +1,136 @@
+{
+  "trips": [
+    {
+      "trip_id": 1,
+      "total_weight": 7.0,
+      "capacity": 10,
+      "utilization_percent": 70.0,
+      "deliveries": [
+        {
+          "id": 7,
+          "area": "dokki",
+          "priority": 1,
+          "weight": 5.0
+        },
+        {
+          "id": 2,
+          "area": "maadi",
+          "priority": 1,
+          "weight": 2.0
+        }
+      ]
+    },
+    {
+      "trip_id": 2,
+      "total_weight": 9.5,
+      "capacity": 10,
+      "utilization_percent": 95.0,
+      "deliveries": [
+        {
+          "id": 8,
+          "area": "maadi",
+          "priority": 1,
+          "weight": 6.0
+        },
+        {
+          "id": 5,
+          "area": "maadi",
+          "priority": 2,
+          "weight": 3.5
+        }
+      ]
+    },
+    {
+      "trip_id": 3,
+      "total_weight": 10.0,
+      "capacity": 10,
+      "utilization_percent": 100.0,
+      "deliveries": [
+        {
+          "id": 4,
+          "area": "zamalek",
+          "priority": 1,
+          "weight": 7.0
+        },
+        {
+          "id": 14,
+          "area": "zamalek",
+          "priority": 2,
+          "weight": 3.0
+        }
+      ]
+    },
+    {
+      "trip_id": 4,
+      "total_weight": 10.0,
+      "capacity": 10,
+      "utilization_percent": 100.0,
+      "deliveries": [
+        {
+          "id": 9,
+          "area": "heliopolis",
+          "priority": 2,
+          "weight": 10.0
+        }
+      ]
+    },
+    {
+      "trip_id": 5,
+      "total_weight": 5.7,
+      "capacity": 10,
+      "utilization_percent": 57.0,
+      "deliveries": [
+        {
+          "id": 1,
+          "area": "nasr city",
+          "priority": 2,
+          "weight": 4.5
+        },
+        {
+          "id": 3,
+          "area": "nasr city",
+          "priority": 3,
+          "weight": 1.2
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "total_trips": 5,
+    "total_weight": 42.2,
+    "total_capacity": 50,
+    "average_utilization_percent": 84.4
+  },
+  "rejected_deliveries": [
+    {
+      "id": 10,
+      "area": "Heliopolis",
+      "weight": 12.0,
+      "reason": "weight 12.0kg exceeds vehicle capacity (10kg)"
+    },
+    {
+      "id": 11,
+      "area": "Dokki",
+      "weight": -1.0,
+      "reason": "weight must be a positive number"
+    },
+    {
+      "id": 12,
+      "area": "N/A",
+      "weight": 3.0,
+      "reason": "missing or invalid area"
+    },
+    {
+      "id": 13,
+      "area": "Maadi",
+      "weight": 3.0,
+      "reason": "priority must be a positive whole number"
+    },
+    {
+      "id": 1,
+      "area": "Dokki",
+      "weight": 1.0,
+      "reason": "duplicate id 1"
+    }
+  ]
+}

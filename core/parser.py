@@ -1,7 +1,7 @@
 import json
 
 def parse(filepath):
- 
+
     try:
         with open(filepath, "r") as file:
             data = json.load(file)
@@ -12,8 +12,11 @@ def parse(filepath):
 
     if not isinstance(data, dict):
         raise SystemExit("Error: JSON root must be an object with a 'deliveries' key.")
+    
+    if "deliveries" not in data:
+        raise SystemExit("Error: missing 'deliveries' key in JSON.")
 
-    deliveries = data.get("deliveries", [])
+    deliveries = data["deliveries"]
 
     if not isinstance(deliveries, list):
         raise SystemExit("Error: 'deliveries' must be a list.")
