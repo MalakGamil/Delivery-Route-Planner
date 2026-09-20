@@ -89,19 +89,19 @@ The other challenge was keeping the search efficient. Scanning every trip for ev
 
 
 
-**Same area split across priorities:**
+**Fallback groups same-area deliveries with a different area:**
 
 ```
-ID2:  Maadi,   priority 1, weight 2.0
-ID4:  Zamalek, priority 1, weight 7.0
-ID14: Zamalek, priority 2, weight 3.0
+ID1: Maadi,   priority 1, weight 8.0
+ID2: Zamalek, priority 1, weight 6.0
+ID3: Maadi,   priority 2, weight 3.0
 ```
 
-After sorting by (priority, area, id): ID2 Maadi → ID4 Zamalek → ID14 Zamalek.
+After sorting by (priority, area, id): Maadi(8) → Zamalek(6) → Maadi(3).
 
-ID4 goes into the only open trip (2kg used), filling it to 9kg. When ID14 arrives, that trip is too full. Result: two Zamalek deliveries in different trips even though 7+3=10kg fits perfectly in one.
+Maadi(8) opens Trip1. Zamalek(6) can't fit in Trip1, so it opens Trip2. When Maadi(3) arrives, it checks the Maadi area index Trip1 is full (8+3=11kg). The fallback finds Trip2 has room (6+3=9kg) and places it there. Result: both Maadi deliveries end up in different trips.
 
-To fix this I'd need to delay ID4 until I know ID14 is coming which means processing a priority-2 delivery before a priority-1 one. That's not a trade-off I'm willing to make.
+The same-area trip was full, but another trip had room. The fallback chose better trip utilization over keeping the delivery with its area Maadi(3) could have opened a new Trip3 instead. The algorithm prefers filling existing trips over opening new ones. That's usually the right call, but here it trades grouping quality for trip efficiency.
 
 **Capacity prevents grouping:**
 
@@ -110,11 +110,7 @@ ID1: Maadi, priority 1, weight 6.0
 ID2: Maadi, priority 1, weight 6.0
 ```
 
-Same area, same priority, but 6+6=12kg doesn't fit in one trip. This isn't the algorithm's fault — the hard constraint is what separates them. I mention it because it's easy to look at the output and think the grouping broke, when really the capacity just didn't allow it.
-
-**Fallback mixes areas when it doesn't have to:**
-
-When no same-area trip fits, the fallback puts the delivery in any trip with room — even if opening a new trip would give better grouping later. This reduces the total number of trips but can put two different areas together when there was no real need to. I decided efficiency matters more here, but it's worth knowing it happens.
+Same area, same priority, but 6+6=12kg doesn't fit in one trip. This isn't the algorithm's fault the hard constraint is what separates them. I mention it because it's easy to look at the output and think the grouping broke, when really the capacity just didn't allow it.
 
 **Area tiebreaker can delay a lower-id delivery:**
 
@@ -123,6 +119,10 @@ When two deliveries share the same priority, the one whose area name comes first
 **Greedy doesn't minimize trips:**
 
 The algorithm never looks ahead. It makes the locally best decision at each step, which means it can open a new trip when a different ordering might have avoided it. A globally optimal solution would require backtracking, which is a much harder problem and not what the task is asking for.
+
+**Item ordering affects packing outcomes:**
+
+The sort fixes the processing order by (priority, area, id). This guarantees deterministic output but is not necessarily the order that minimizes wasted space. Sorting heaviest-first within the same priority would sometimes reduce the number of trips opened, because large items placed early leave smaller gaps that smaller items can fill cleanly. The current order trades that potential efficiency for predictability and simplicity.
 
 ---
 
@@ -134,7 +134,7 @@ The first is memory. The program loads the entire JSON file before doing anythin
 
 The second is the fallback search. The area index gives same-area lookups cheaply, but when no same-area trip fits, I scan every open trip to find the best one. In the worst case a million deliveries all going to different areas the number of open trips grows with n and scanning all of them for each delivery pushes complexity toward O(n²).
 
-The right fix is a data structure that keeps trips sorted by remaining capacity and supports finding the first trip that fits a given weight in O(log t) instead of O(t). Python's `sortedcontainers.SortedList` does this and would bring the worst case down to O(n log n). I left it out because the current scale doesn't need it and it adds an external dependency, but it's the obvious next step.
+A `SortedList` keyed by remaining capacity could reduce the cost of finding a candidate trip in the fallback. The improvement over the current O(t) scan is real, but the exact gain depends on how trips are updated after each insertion each add requires a remove and reinsert to maintain order, which adds its own cost. I left it out because the current scale doesn't need it and it adds an external dependency, but it's the obvious next step.
 
 ---
 
@@ -144,7 +144,7 @@ The `SortedList` for the fallback search is the biggest algorithmic improvement 
 
 After that, streaming input to reduce peak memory, even if sorting still needs buffering.
 
-Then more targeted tests for the planning logic itself — specifically the cases where priority and area conflict — rather than relying only on end-to-end runs.
+Then more targeted tests for the planning logic itself specifically the cases where priority and area conflict rather than relying only on end-to-end runs.
 
 ---
 
@@ -209,7 +209,7 @@ Exit with a clear error. Silently returning "no deliveries" when the key is just
 python main.py deliveries.json 15
 ```
 
-Defaults to 10kg but can be changed at runtime. Hardcoding 10kg ties the planner to one vehicle type. Making it a parameter meant touching only `main.py` — the planning logic didn't change, which confirms the separation is working.
+Defaults to 10kg but can be changed at runtime. Hardcoding 10kg ties the planner to one vehicle type. Making it a parameter meant touching only `main.py` the planning logic didn't change, which confirms the separation is working.
 
 **Trip summary and output file:**
 
