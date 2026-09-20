@@ -3,7 +3,7 @@ import json
 def parse(filepath):
 
     try:
-        with open(filepath, "r") as file:
+        with open(filepath, "r", encoding="utf-8-sig") as file:
             data = json.load(file)
     except FileNotFoundError:
         raise SystemExit(f"Error: File '{filepath}' not found.")

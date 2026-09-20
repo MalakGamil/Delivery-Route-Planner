@@ -11,7 +11,7 @@ def format_output(trips, invalid_deliveries):
                 "deliveries": [
                     {
                         "id": d.id,
-                        "area": d.area,
+                        "area": d.area_display,
                         "priority": d.priority,
                         "weight": d.weight
                     }
@@ -47,7 +47,7 @@ def format_output(trips, invalid_deliveries):
         for trip in trips:
             print(f"Trip {trip.id} - {round(trip.total_weight, 2)}/{trip.capacity}kg")
             for d in trip.deliveries:
-                print(f"  - #{d.id} {d.area}, priority {d.priority}, {d.weight}kg")
+                print(f"  - #{d.id} {d.area_display}, priority {d.priority}, {d.weight}kg")
         print()
         print(f"Total trips: {len(trips)}")
         total_w = sum(t.total_weight for t in trips)

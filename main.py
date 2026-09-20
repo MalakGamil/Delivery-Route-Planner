@@ -18,6 +18,5 @@ def main():
     trips = plan(valid_deliveries, args.capacity)
     format_output(trips, invalid_deliveries)
 
-
 if __name__ == "__main__":
     main()

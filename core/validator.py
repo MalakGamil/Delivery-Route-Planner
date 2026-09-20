@@ -30,7 +30,8 @@ def validate(raw_deliveries, capacity):
         if not isinstance(area, str) or not area.strip():
             invalid.append((raw, "missing or invalid area"))
             continue
-        area = " ".join(area.split()).lower()
+        area_display = " ".join(area.split())   # original casing, collapsed spaces
+        area = area_display.lower()              # normalized key for grouping
 
         if not isinstance(priority, int) or isinstance(priority, bool) or priority <= 0:
             invalid.append((raw, "priority must be a positive whole number"))
@@ -45,6 +46,6 @@ def validate(raw_deliveries, capacity):
             continue
 
         seen_ids.add(delivery_id)
-        valid.append(Delivery(delivery_id, area, priority, weight))
+        valid.append(Delivery(delivery_id, area, area_display, priority, weight))
 
     return valid, invalid

@@ -9,7 +9,7 @@ class Trip:
         return self.capacity - self.total_weight
  
     def can_accept(self, delivery):
-        return self.total_weight + delivery.weight <= self.capacity
+        return round(self.total_weight + delivery.weight, 9) <= self.capacity
  
     def add(self, delivery):
         if not self.can_accept(delivery):

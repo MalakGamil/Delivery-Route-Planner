@@ -184,6 +184,8 @@ Reject it. Area is part of the grouping logic; without it the algorithm can't do
 **Area case sensitivity and whitespace:**
 Normalize with `" ".join(area.split()).lower()`. This strips leading and trailing whitespace, collapses internal spaces ("Nasr  City" becomes "Nasr City"), and lowercases everything. Without this, a double space in the input would silently break grouping the area index would treat "Nasr  City" and "Nasr City" as different areas and put the deliveries in separate trips with no warning.
 
+Normalizing is the right thing to do for grouping, but it's the wrong thing to show the user printing `nasr city` in the output looks like a bug even when the grouping is correct. So each `Delivery` keeps both: `area` is the normalized key the planner groups on, and `area_display` is the cleaned-up original ("Nasr City") that the formatter prints. The normalization only ever affects matching, never presentation.
+
 **Priority is not a positive integer:**
 Reject it. Can't sort without a valid number. Priority 0 is also rejected — the PDF implies priorities start at 1, and 0 as "highest priority" would be ambiguous.
 
@@ -193,6 +195,13 @@ Reject it. Python's json parser accepts these as valid floats, but they're not r
 **Weight is zero or negative:**
 Reject it. A delivery with no weight is almost certainly a data error.
 
+**Floating-point weights that should fill a trip exactly:**
+Weights come in as floats, and floats don't add up the way decimal numbers do. `4.9 + 3.2 + 1.9` is exactly 10.0 on paper, but in binary floating point it comes out as `10.000000000000002`. A plain `total + weight <= capacity` check rejects that third package and opens a second trip for it, so a trip that should have been full at 100% ends up split across two vehicles for a rounding error of 2e-15.
+
+This isn't a rare case. Any set of weights written with one decimal place can trigger it, and delivery weights almost always look like that. `can_accept()` rounds the sum to 9 decimal places before comparing, which absorbs the accumulated error while staying far more precise than any real scale. I chose rounding over an epsilon tolerance (`<= capacity + 1e-9`) because rounding keeps the comparison itself exact and reads more obviously as "compare these as decimal numbers." Storing weights as integer grams internally would be the fully correct fix, but it means converting on input and output everywhere, which felt like the wrong trade for this size of program.
+
+
+
 **Capacity is zero or negative:**
 Exit immediately at startup. There's no point processing anything with an invalid vehicle configuration.
 
@@ -201,16 +210,38 @@ Exit with a clear error. Silently returning "no deliveries" when the key is just
 
 ---
 
-## Extension — Configurable Capacity + Trip Summary
+## Extension — Utilization Reporting (with configurable capacity)
 
-**Configurable capacity:**
+**What it does**
 
 ```bash
-python main.py deliveries.json 15
+python main.py deliveries.json        # default 10kg vehicle
+python main.py deliveries.json 15     # 15kg vehicle
 ```
 
-Defaults to 10kg but can be changed at runtime. Hardcoding 10kg ties the planner to one vehicle type. Making it a parameter meant touching only `main.py` the planning logic didn't change, which confirms the separation is working.
+Every trip is reported with its load against capacity, the run ends with total trips and average utilization, and the complete result including the rejected deliveries and the reason each one was rejected is written to `output.json`.
 
-**Trip summary and output file:**
+```
+Trip 2 - 9.5/10kg
+  - #8 Maadi, priority 1, 6.0kg
+  - #5 Maadi, priority 2, 3.5kg
 
-After the trips, the program prints total trips, total weight, and average capacity utilization. It also saves the full result to `output.json`. I added both because without them you'd have to count and calculate manually to know how efficiently the capacity was used and having a machine-readable output means the results can feed into another system without parsing the printed text.
+Total trips: 5
+Average utilization: 42.2/50kg (84.4%)
+```
+
+**Why I chose this**
+
+The requirements contain one line that isn't a rule: deliveries should be grouped by area *"where reasonably possible."* Everything else in the task is checkable. A trip either exceeds 10kg or it doesn't. A delivery either appears exactly once or it doesn't. But "reasonably possible" is a judgment call, and the algorithm makes that call dozens of times per run every time it decides whether to squeeze a delivery into an existing trip or open a new one.
+
+A program that prints only the trip list gives you no way to evaluate those decisions. You can see *what* it chose, but not whether the choice was any good. Utilization is the number that makes it visible: 84.4% across 5 trips says the packing is tight; the same 5 trips at 60% would say the planner is opening vehicles it doesn't need.
+
+That number is also what let me find the real limitation documented in question 3. I could see the two Maadi deliveries land in different trips, and utilization told me it wasn't a capacity problem the trips weren't full, so the fallback had made a bad call. Without the summary I'd have been guessing at my own algorithm's behaviour rather than reading it.
+
+Configurable capacity is part of the same idea rather than a separate feature. A single hardcoded 10kg gives you exactly one data point. Being able to re-run the same deliveries against a different vehicle size is what turns the output into something you can compare against itself, and it costs one argument in `main.py` because the planner already takes capacity as a parameter.
+
+`output.json` exists so the results are consumable by something other than a human reading a terminal. A real planner would be one step in a pipeline, and parsing printed text is the wrong way to get data out of a program that already has it structured.
+
+**What I deliberately left out**
+
+Multiple vehicle types, distances between areas, and time windows are all things a real delivery planner needs, and all of them would have made this a different and much larger problem than the one that was asked. I preferred a small feature that makes the existing solution easier to judge over a large one that makes it harder to read.
