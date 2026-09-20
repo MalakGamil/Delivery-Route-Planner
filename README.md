@@ -61,13 +61,13 @@ delivery_planner/
 
 ### 1. Explain your solution approach
 
-The program runs in four stages: parsing, validation, planning, and formatting. Each stage does one thing and doesn't know about the others. This isn't a formal pattern the task doesn't need that level of structure but the split means if I change the input format, I only touch the parser, and if I change how results look, I only touch the formatter. The planner never sees a JSON line or a print statement. This is the Open/Closed principle in practice: the planner is closed to changes in how data arrives or how results are shown, but open to a different planning strategy if needed later.
+The program runs in four stages: parsing, validation, planning, and formatting. Each stage does one thing and doesn't know about the others. This isn't a formal pattern — the task doesn't need that level of structure — but the split means if I change the input format, I only touch the parser, and if I change how results look, I only touch the formatter. The planner never sees a JSON line or a print statement. This is the Open/Closed principle in practice: the planner is closed to changes in how data arrives or how results are shown, but open to a different planning strategy if needed later.
 
-I used classes for `Delivery` and `Trip` because they have something real to own. `Delivery` just holds the four fields. `Trip` owns the capacity logic `can_accept()` and `add()` live there, not in the planner. The planner never does weight arithmetic directly; it asks the trip "can you take this?" and the trip answers. That's Single Responsibility: one class, one reason to change. If the capacity rule changes, there's one place to fix it.
+I used classes for `Delivery` and `Trip` because they have something real to own. `Delivery` just holds the four fields. `Trip` owns the capacity logic — `can_accept()` and `add()` live there, not in the planner. The planner never does weight arithmetic directly; it asks the trip "can you take this?" and the trip answers. That's Single Responsibility: one class, one reason to change. If the capacity rule changes, there's one place to fix it.
 
-The planner is a plain function because it has no state between calls  making it a class would just be adding noise.
+The planner is a plain function because it has no state between calls — making it a class would just be adding noise.
 
-For the planning itself: sort by priority first, then area name, then id. The area in the middle is the key decision when two deliveries share the same priority, putting area before id means same-area deliveries end up next to each other after sorting, which improves grouping without extra logic. The id at the end keeps the output deterministic.
+For the planning itself: sort by priority first, then area name, then id. The area in the middle is the key decision: when two deliveries share the same priority, putting area before id means same-area deliveries end up next to each other after sorting, which improves grouping without extra logic. The id at the end keeps the output deterministic.
 
 From there it's a greedy pass. For each delivery, I first look for a trip already serving the same area that still has room using a dict that maps each area to its trips, so I don't scan everything. If no same-area trip works, I fall back to any trip with room and pick the one that will be most full after adding this delivery. If nothing fits, I open a new trip.
 
@@ -87,8 +87,6 @@ The other challenge was keeping the search efficient. Scanning every trip for ev
 
 ### 3. Are there situations where your algorithm may not produce the best possible grouping?
 
-
-
 **Fallback groups same-area deliveries with a different area:**
 
 ```
@@ -99,9 +97,9 @@ ID3: Maadi,   priority 2, weight 3.0
 
 After sorting by (priority, area, id): Maadi(8) → Zamalek(6) → Maadi(3).
 
-Maadi(8) opens Trip1. Zamalek(6) can't fit in Trip1, so it opens Trip2. When Maadi(3) arrives, it checks the Maadi area index Trip1 is full (8+3=11kg). The fallback finds Trip2 has room (6+3=9kg) and places it there. Result: both Maadi deliveries end up in different trips.
+Maadi(8) opens Trip1. Zamalek(6) can't fit in Trip1, so it opens Trip2. When Maadi(3) arrives, it checks the Maadi area index — Trip1 is full (8+3=11kg). The fallback finds Trip2 has room (6+3=9kg) and places it there. Result: both Maadi deliveries end up in different trips.
 
-The same-area trip was full, but another trip had room. The fallback chose better trip utilization over keeping the delivery with its area Maadi(3) could have opened a new Trip3 instead. The algorithm prefers filling existing trips over opening new ones. That's usually the right call, but here it trades grouping quality for trip efficiency.
+The same-area trip was full, but another trip had room. The fallback chose better trip utilization over keeping the delivery with its area — Maadi(3) could have opened a new Trip3 instead, which would have kept both Maadi deliveries together. The algorithm prefers filling existing trips over opening new ones. That's usually the right call, but here it trades grouping quality for trip efficiency.
 
 **Capacity prevents grouping:**
 
@@ -110,7 +108,7 @@ ID1: Maadi, priority 1, weight 6.0
 ID2: Maadi, priority 1, weight 6.0
 ```
 
-Same area, same priority, but 6+6=12kg doesn't fit in one trip. This isn't the algorithm's fault the hard constraint is what separates them. I mention it because it's easy to look at the output and think the grouping broke, when really the capacity just didn't allow it.
+Same area, same priority, but 6+6=12kg doesn't fit in one trip. This isn't the algorithm's fault — the hard constraint is what separates them. I mention it because it's easy to look at the output and think the grouping broke, when really the capacity just didn't allow it.
 
 **Area tiebreaker can delay a lower-id delivery:**
 
@@ -130,11 +128,11 @@ The sort fixes the processing order by (priority, area, id). This guarantees det
 
 Two things would hurt at that scale.
 
-The first is memory. The program loads the entire JSON file before doing anything. A million delivery objects in memory at once is expensive. The fix is streaming read and process one delivery at a time but that conflicts with sorting, since you can't sort a stream without buffering it. So at scale, sorting and memory become a linked problem.
+The first is memory. The program loads the entire JSON file before doing anything. A million delivery objects in memory at once is expensive. The fix is streaming — read and process one delivery at a time — but that conflicts with sorting, since you can't sort a stream without buffering it. So at scale, sorting and memory become a linked problem.
 
-The second is the fallback search. The area index gives same-area lookups cheaply, but when no same-area trip fits, I scan every open trip to find the best one. In the worst case a million deliveries all going to different areas the number of open trips grows with n and scanning all of them for each delivery pushes complexity toward O(n²).
+The second is the fallback search. The area index gives same-area lookups cheaply, but when no same-area trip fits, I scan every open trip to find the best one. In the worst case — a million deliveries all going to different areas — the number of open trips grows with n, and scanning all of them for each delivery pushes complexity toward O(n²).
 
-A `SortedList` keyed by remaining capacity could reduce the cost of finding a candidate trip in the fallback. The improvement over the current O(t) scan is real, but the exact gain depends on how trips are updated after each insertion each add requires a remove and reinsert to maintain order, which adds its own cost. I left it out because the current scale doesn't need it and it adds an external dependency, but it's the obvious next step.
+A `SortedList` keyed by remaining capacity could reduce the cost of finding a candidate trip in the fallback. The improvement over the current O(t) scan is real, but the exact gain depends on how trips are updated after each insertion — each add requires a remove and reinsert to maintain order, which adds its own cost. I left it out because the current scale doesn't need it and it adds an external dependency, but it's the obvious next step.
 
 ---
 
@@ -144,7 +142,7 @@ The `SortedList` for the fallback search is the biggest algorithmic improvement 
 
 After that, streaming input to reduce peak memory, even if sorting still needs buffering.
 
-Then more targeted tests for the planning logic itself specifically the cases where priority and area conflict rather than relying only on end-to-end runs.
+Then more targeted tests for the planning logic itself — specifically the cases where priority and area conflict — rather than relying only on end-to-end runs.
 
 ---
 
@@ -162,29 +160,27 @@ Reject it and report it, but keep processing the rest. One bad delivery shouldn'
 Valid. The rule is `<=` not `<`. Worth mentioning because it's easy to write the wrong comparison.
 
 **Adding next package would exceed capacity:**
-Don't reject the delivery find another trip with room, or open a new one. The delivery is valid; it just doesn't fit here.
+Don't reject the delivery — find another trip with room, or open a new one. The delivery is valid; it just doesn't fit here.
 
 **Multiple deliveries with the same priority:**
 Sort by area name first, then id. Area grouping is an explicit requirement, and putting it before id means same-area deliveries cluster together naturally. The id keeps the result deterministic when areas also match.
-
-
 
 **Missing id:**
 Reject it. Can't track a delivery without an identifier.
 
 **Duplicate id:**
-Reject the second one, keep the first. An id is supposed to be unique if there's a duplicate, we don't know which one is right, so we take the first and report the rest.
+Reject the second one, keep the first. An id is supposed to be unique — if there's a duplicate, we don't know which one is right, so we take the first and report the rest.
 
 **Id is not a positive integer:**
-Reject it. A float like 1.5 or a boolean like True technically passes an `isinstance(x, int)` check in Python because bool is a subclass of int so we check for both explicitly.
+Reject it. A float like 1.5 or a boolean like True technically passes an `isinstance(x, int)` check in Python because bool is a subclass of int — so we check for both explicitly.
 
 **Area is empty or missing:**
 Reject it. Area is part of the grouping logic; without it the algorithm can't do its job.
 
 **Area case sensitivity and whitespace:**
-Normalize with `" ".join(area.split()).lower()`. This strips leading and trailing whitespace, collapses internal spaces ("Nasr  City" becomes "Nasr City"), and lowercases everything. Without this, a double space in the input would silently break grouping the area index would treat "Nasr  City" and "Nasr City" as different areas and put the deliveries in separate trips with no warning.
+Normalize with `" ".join(area.split()).lower()`. This strips leading and trailing whitespace, collapses internal spaces ("Nasr  City" becomes "Nasr City"), and lowercases everything. Without this, a double space in the input would silently break grouping — the area index would treat "Nasr  City" and "Nasr City" as different areas and put the deliveries in separate trips with no warning.
 
-Normalizing is the right thing to do for grouping, but it's the wrong thing to show the user printing `nasr city` in the output looks like a bug even when the grouping is correct. So each `Delivery` keeps both: `area` is the normalized key the planner groups on, and `area_display` is the cleaned-up original ("Nasr City") that the formatter prints. The normalization only ever affects matching, never presentation.
+Normalizing is the right thing to do for grouping, but it's the wrong thing to show the user — printing `nasr city` in the output looks like a bug even when the grouping is correct. So each `Delivery` keeps both: `area` is the normalized key the planner groups on, and `area_display` is the cleaned-up original ("Nasr City") that the formatter prints. The normalization only ever affects matching, never presentation.
 
 **Priority is not a positive integer:**
 Reject it. Can't sort without a valid number. Priority 0 is also rejected — the PDF implies priorities start at 1, and 0 as "highest priority" would be ambiguous.
@@ -199,8 +195,6 @@ Reject it. A delivery with no weight is almost certainly a data error.
 Weights come in as floats, and floats don't add up the way decimal numbers do. `4.9 + 3.2 + 1.9` is exactly 10.0 on paper, but in binary floating point it comes out as `10.000000000000002`. A plain `total + weight <= capacity` check rejects that third package and opens a second trip for it, so a trip that should have been full at 100% ends up split across two vehicles for a rounding error of 2e-15.
 
 This isn't a rare case. Any set of weights written with one decimal place can trigger it, and delivery weights almost always look like that. `can_accept()` rounds the sum to 9 decimal places before comparing, which absorbs the accumulated error while staying far more precise than any real scale. I chose rounding over an epsilon tolerance (`<= capacity + 1e-9`) because rounding keeps the comparison itself exact and reads more obviously as "compare these as decimal numbers." Storing weights as integer grams internally would be the fully correct fix, but it means converting on input and output everywhere, which felt like the wrong trade for this size of program.
-
-
 
 **Capacity is zero or negative:**
 Exit immediately at startup. There's no point processing anything with an invalid vehicle configuration.
@@ -236,7 +230,7 @@ The requirements contain one line that isn't a rule: deliveries should be groupe
 
 A program that prints only the trip list gives you no way to evaluate those decisions. You can see *what* it chose, but not whether the choice was any good. Utilization is the number that makes it visible: 84.4% across 5 trips says the packing is tight; the same 5 trips at 60% would say the planner is opening vehicles it doesn't need.
 
-That number is also what let me find the real limitation documented in question 3. I could see the two Maadi deliveries land in different trips, and utilization told me it wasn't a capacity problem the trips weren't full, so the fallback had made a bad call. Without the summary I'd have been guessing at my own algorithm's behaviour rather than reading it.
+That number is also what let me find the real limitation documented in question 3. I could see the two Maadi deliveries land in different trips, and utilization told me it wasn't a capacity problem — the trips weren't full, so the fallback had made a bad call. Without the summary I'd have been guessing at my own algorithm's behaviour rather than reading it.
 
 Configurable capacity is part of the same idea rather than a separate feature. A single hardcoded 10kg gives you exactly one data point. Being able to re-run the same deliveries against a different vehicle size is what turns the output into something you can compare against itself, and it costs one argument in `main.py` because the planner already takes capacity as a parameter.
 
